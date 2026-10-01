@@ -1,0 +1,21 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+*.log
+data/*.db
+data/projects/
+artifacts/*
+!artifacts/.gitkeep
+logs/*
+!logs/.gitkeep
+.streamlit/secrets.toml
+.DS_Store
+
+# Local delivery workspace / source archive
+/app_audit/
+*.zip
+*.sha256
