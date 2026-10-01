@@ -13,7 +13,56 @@ def main() -> None:
     cells = [
         md("""# AI Insurance Data Analyst V2 — notebook pédagogique\n\nCe notebook explique bloc par bloc le code de l’application et son lien avec l’orchestration Agentic AI.\n\nPrincipe directeur : **l’IA comprend l’intention et explique ; les services déterministes calculent et modifient les données**.\n\nParcours : `CONNECT → PROFILE → CLEAN → VALIDATE → ANALYZE → EXPLAIN → VISUALIZE → REPORT → EXPORT`.\n"""),
         md("""## 1. Architecture globale\n\n```text\nUtilisateur → Streamlit/app.py → SupervisorAgent/AnalysisAgent\n                                      │\n        ┌─────────────────────────────┴─────────────────────────────┐\n        │ Ingestion │ Profiling │ Cleaning │ Analytics │ KPI │ Report │\n        └─────────────────────────────┬─────────────────────────────┘\n                                      ▼\n                           ProjectStore + AuditLogger\n\nGeminiModelManager : planification JSON et explication, jamais calcul financier.\n```\n\nUne boucle agentique observe l’état, planifie, choisit un outil autorisé, exécute, vérifie et journalise. Elle ne lance pas de Python arbitraire.\n"""),
-        py("""from pathlib import Path\nimport pandas as pd\nPROJECT_ROOT = Path.cwd()\nif not (PROJECT_ROOT / 'insurance_ai').exists(): PROJECT_ROOT = PROJECT_ROOT.parent\nDATA_PATH = PROJECT_ROOT / 'sample_data' / 'insurance_sample.csv'\ndf = pd.read_csv(DATA_PATH)\nprint(len(df), 'lignes |', len(df.columns), 'colonnes')\nprint('doublons =', int(df.duplicated().sum()), '| NA =', int(df.isna().sum().sum()))\ndf.head()\n"""),
+        md("""## 1.1 Structure réelle de l’Agent IA créé dans l’application
+
+L’application met en place un **agent hybride et gouverné**, et non un chatbot qui exécute librement du code :
+
+```text
+Question / action → Streamlit + session_state
+                           ↓
+                    SupervisorAgent
+                    route(profile/clean/ask)
+                           ↓
+                    AnalysisAgent
+                 schéma → plan → validation
+                      ↙          ↘
+        AnalyticsService        GeminiModelManager
+        calcul Pandas            JSON / explication
+                      ↓
+             résultat + méthode + audit
+```
+
+**Rôle des composants :**
+
+- `SupervisorAgent` route les intentions vers profilage, nettoyage ou analyse ; ce routage critique est déterministe.
+- `AnalysisAgent` transforme une question en plan structuré (`operation`, `column`, `filters`, `group_by`, `chart_type`) puis le valide.
+- `AnalyticsService` exécute uniquement les opérations autorisées avec Pandas. Aucun Python ou SQL généré n’est exécuté.
+- `GeminiModelManager` peut proposer un plan JSON et rédiger une explication, mais ne calcule pas les KPI et ne modifie pas directement le DataFrame.
+- `ProfilingService`, `CleaningService`, `InsuranceKPIService`, `DashboardService` et les services de reporting sont les outils métier déterministes.
+- `ProjectStore` persiste les versions ; `AuditLogger` trace les transformations, analyses et exports.
+
+Cette structure suit le pattern **planner → validator → tool executor → verifier/auditor**. La dimension agentique vient de l’orchestration contrôlée et de la gestion d’état.
+"""),
+        py("""from insurance_ai.agents.analysis_agent import AnalysisAgent
+from insurance_ai.agents.supervisor import SupervisorAgent
+from insurance_ai.services.analytics import AnalyticsService
+
+supervisor = SupervisorAgent()
+agent = AnalysisAgent(analytics=AnalyticsService())
+print('Routage analyse :', supervisor.route('analyze'))
+print('Opérations autorisées :', sorted(agent.analytics.OPS))
+print('LLM activé :', agent.llm.enabled)
+"""),
+        py("""from pathlib import Path
+import pandas as pd
+PROJECT_ROOT = Path.cwd()
+if not (PROJECT_ROOT / 'insurance_ai').exists(): PROJECT_ROOT = PROJECT_ROOT.parent
+DATA_PATH = PROJECT_ROOT / 'sample_data' / 'insurance_sample.csv'
+df = pd.read_csv(DATA_PATH)
+print(len(df), 'lignes |', len(df.columns), 'colonnes')
+print('doublons =', int(df.duplicated().sum()), '| NA =', int(df.isna().sum().sum()))
+df.head()
+"""),
         md("""## Grandes composantes Python et utilité Agent IA\n\nLes dépendances sont organisées par responsabilité :\n\n- **Interface et état** : `streamlit` affiche les pages, widgets, messages et téléchargements ; `st.session_state` conserve la mémoire de travail du workflow.\n- **Données et calcul** : `pandas` manipule les DataFrames, `numpy` fournit les opérations numériques, `pyarrow/openpyxl/xlrd` gèrent Parquet et Excel.\n- **Visualisation** : `plotly` produit les graphiques interactifs ; `matplotlib` génère les images utilisées dans les rapports.\n- **Bases** : `sqlalchemy` abstrait les moteurs, `psycopg`, `pymysql` et `pyodbc` fournissent les connecteurs PostgreSQL, MySQL et ODBC.\n- **IA et contrats** : `google-genai` appelle Gemini ; `pydantic` et les dataclasses structurent les résultats et plans ; l’agent reste limité à des opérations allow-listées.\n- **Rapports** : `jinja2`, `reportlab`, `python-docx` et `python-pptx` alimentent les formats HTML, PDF, DOCX et PPTX.\n- **Sécurité/configuration** : `python-dotenv` charge l’environnement, `bcrypt` protège les mots de passe, `chardet` aide à détecter les encodages.\n- **Qualité** : `pytest` vérifie les parcours critiques avant déploiement.\n\nCette séparation transforme un LLM généraliste en orchestrateur d’outils spécialisés : il choisit l’outil, mais ne remplace pas les bibliothèques déterministes.\n"""),
         md("""## 2. Configuration et initialisation de `app.py`\n\n`core/config.py` construit `Settings` à partir des variables d’environnement : répertoires, taille maximale d’upload, clé Gemini, modèles autorisés, retries et timeout. Les secrets ne sont jamais codés dans l’application.\n\n`app.py` instancie `ProjectStore`, `AuditLogger`, `IngestionService`, `ProfilingService`, `CleaningService`, `DashboardService`, `ReportGenerator`, etc. `st.session_state` conserve utilisateur, projet, dataset actif et résultats entre deux reruns.\n\nLe rechargement défensif des services traite les processus Streamlit qui gardent un ancien module Python en mémoire.\n"""),
         py("""import os\nprint('APP_ENV =', os.getenv('APP_ENV', 'development'))\nprint('Gemini configuré =', bool(os.getenv('GOOGLE_API_KEY')))\nprint('Limite upload =', os.getenv('MAX_UPLOAD_MB', '200'), 'MB')\n"""),
@@ -39,6 +88,30 @@ def main() -> None:
         py("""from insurance_ai.core.models import TransformationRecord\nrecord = TransformationRecord(transformation_id='demo-001', dataset_id='raw-demo', operation='impute_cell', column='region', parameters={'row_position': 9, 'strategy': 'manual', 'value': 'Abidjan'}, rows_before=len(df), rows_after=len(df), user='demo')\nrecord.to_dict()\n"""),
         md("""## 13. Flux complet Agentic AI\n\n```text\nQuestion → observation du schéma/session → plan JSON\n        → validation allow-list → outil Pandas/KPI/dashboard\n        → résultat déterministe → explication Gemini\n        → audit + ajout éventuel au rapport\n```\n\nLa valeur agentique vient de la coordination des outils et de la gestion de l’état. La sécurité vient de la validation avant l’action. Une évolution possible est de séparer des agents Ingestion, Qualité, Assurance, Visualisation et Reporting en conservant les mêmes contrats déterministes.\n"""),
         md("""## Références du dépôt\n\n- `app.py` : UI Streamlit, session et parcours utilisateur\n- `insurance_ai/agents/analysis_agent.py` : planification/explanation NL\n- `insurance_ai/agents/supervisor.py` : routage\n- `insurance_ai/services/analytics.py` : opérations allow-listées\n- `insurance_ai/services/gemini_manager.py` : fallback Gemini\n- `insurance_ai/core/project_store.py` : versions RAW/STAGING/CURATED\n- `insurance_ai/core/audit.py` : audit SQLite\n- `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/MOA_TRACEABILITY.md` : documentation de référence\n"""),
+        md("""## 14. Lecture pédagogique d’un cycle agentique complet
+
+Pour « Quelle est la moyenne de `written_premium` ? », le cycle réel est :
+
+1. **Observer** : l’agent reçoit la question et un résumé du schéma, pas le dataset complet envoyé au modèle.
+2. **Planifier** : Gemini retourne un JSON si disponible ; sinon l’heuristique locale détecte la moyenne et la colonne.
+3. **Valider** : opération, colonnes et opérateurs de filtre sont contrôlés côté serveur.
+4. **Exécuter** : `AnalyticsService.execute()` calcule avec Pandas et conserve valeur, formule et avertissements.
+5. **Expliquer** : Gemini peut reformuler le résultat compact sans inventer de nombre ; le fallback reste disponible.
+6. **Tracer** : le résultat peut rejoindre le rapport et l’action être journalisée par `AuditLogger`.
+
+Pour une imputation, l’utilisateur sélectionne explicitement la cellule dans Streamlit. `CleaningService.impute_cell` contrôle le type et les identifiants potentiels, puis la transformation passe en STAGING et est auditée. L’IA ne décide donc jamais seule de remplacer une clé de police ou de sinistre.
+"""),
+        md("""## 15. Limites et bonnes pratiques d’un Agent IA en production
+
+- **Déterminisme métier** : primes, sinistres, S/P et rétentions restent calculés par du code testé.
+- **Contrat de sortie** : le modèle produit un JSON limité ; aucun SQL arbitraire ou Python généré n’est exécuté.
+- **Minimisation** : le modèle reçoit un schéma et des résultats compacts, pas nécessairement toutes les données sensibles.
+- **Résilience** : retries, modèles de secours et mode offline permettent de continuer sans Gemini.
+- **Réversibilité** : RAW est conservé, les transformations sont versionnées et les opérations critiques sont auditées.
+- **Évaluation** : les tests couvrent plans invalides, colonnes inconnues, données vides et erreurs de modèle.
+
+Ce compromis est adapté à l’assurance : l’agent accélère la compréhension et la navigation, tandis que les règles de calcul et de sécurité restent sous contrôle logiciel.
+"""),
     ]
     notebook = {'cells': cells, 'metadata': {'kernelspec': {'display_name': 'Python 3', 'language': 'python', 'name': 'python3'}, 'language_info': {'name': 'python'}}, 'nbformat': 4, 'nbformat_minor': 5}
     destination = Path(__file__).resolve().parents[1] / 'docs' / 'AI_Insurance_Data_Analyst_Pedagogical.ipynb'

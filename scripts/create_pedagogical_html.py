@@ -17,7 +17,9 @@ def render_markdown(source: str) -> str:
     def flush_paragraph() -> None:
         if paragraph:
             text = " ".join(paragraph).strip()
-            text = re.sub(r"`([^`]+)`", r"<code>\1</code>", html.escape(text))
+            text = html.escape(text)
+            text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
+            text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
             output.append(f"<p>{text}</p>")
             paragraph.clear()
 
@@ -41,15 +43,26 @@ def render_markdown(source: str) -> str:
         if match:
             flush_paragraph()
             level = len(match.group(1))
-            text = re.sub(r"`([^`]+)`", r"<code>\1</code>", html.escape(match.group(2)))
+            text = html.escape(match.group(2))
+            text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
+            text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
             output.append(f"<h{level + 1}>{text}</h{level + 1}>")
             continue
         if line.startswith("- "):
             flush_paragraph()
-            output.append(f"<li>{html.escape(line[2:])}</li>")
+            item = html.escape(line[2:])
+            item = re.sub(r"`([^`]+)`", r"<code>\1</code>", item)
+            item = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", item)
+            if not output or (output[-1] != "<ul>" and not output[-1].startswith("<li>")):
+                output.append("<ul>")
+            output.append(f"<li>{item}</li>")
             continue
+        if output and output[-1].startswith("<li>"):
+            output.append("</ul>")
         paragraph.append(line)
     flush_paragraph()
+    if output and output[-1].startswith("<li>"):
+        output.append("</ul>")
     if in_code:
         output.append(f"<pre><code>{html.escape(chr(10).join(code_lines))}</code></pre>")
     return "\n".join(output)
