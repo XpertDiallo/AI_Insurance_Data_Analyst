@@ -56,6 +56,8 @@ def init_state() -> None:
         "analysis_results": [],
         "report_charts": [],
         "db_service": None,
+        "raw_preview": None,
+        "raw_preview_info": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -256,11 +258,37 @@ elif page == "Importer":
                     st.warning("Le fichier ne contient aucune ligne.")
                 else:
                     meta = save_version(df, "RAW", info["format"], uploaded.name)
+                    # Keep an immutable preview of the original imported data
+                    # available after reruns and when the user returns to this
+                    # page after cleaning the working STAGING version.
+                    st.session_state.raw_preview = df.head(100).copy()
+                    st.session_state.raw_preview_info = {
+                        "source_name": uploaded.name,
+                        "dataset_id": meta.dataset_id,
+                        "rows": len(df),
+                        "columns": len(df.columns),
+                    }
                     audit.log("dataset_imported", {"name": uploaded.name, "rows": len(df), "columns": len(df.columns)}, user=st.session_state.user["username"], project_id=st.session_state.project_id)
                     st.success(f"RAW enregistré : {len(df):,} lignes × {len(df.columns)} colonnes")
-                    st.dataframe(df.head(50), use_container_width=True)
             except Exception as exc:
-                st.exception(exc)
+                st.error(f"Import impossible : {exc}")
+
+    raw_preview = st.session_state.get("raw_preview")
+    raw_preview_info = st.session_state.get("raw_preview_info") or {}
+    if isinstance(raw_preview, pd.DataFrame):
+        st.divider()
+        st.subheader("👁️ Prévisualisation de la dataset RAW")
+        st.caption(
+            f"Source : {raw_preview_info.get('source_name', 'dataset')} · "
+            f"Version : RAW · {raw_preview_info.get('rows', len(raw_preview)):,} lignes × "
+            f"{raw_preview_info.get('columns', len(raw_preview.columns))} colonnes · "
+            f"aperçu limité aux {len(raw_preview):,} premières lignes."
+        )
+        st.dataframe(raw_preview, use_container_width=True, hide_index=True)
+        if st.button("Effacer l’aperçu RAW"):
+            st.session_state.raw_preview = None
+            st.session_state.raw_preview_info = None
+            st.rerun()
 
 elif page == "Qualité":
     st.header("🔎 Profilage et qualité")
@@ -311,8 +339,22 @@ elif page == "Nettoyage":
     elif action == "Imputer NA":
         col=st.selectbox("Colonne",list(df.columns)); strategy=st.selectbox("Stratégie",["median","mean","mode","constant","group_median"]); value=st.text_input("Valeur constante (si applicable)"); group=st.selectbox("Groupe (si group_median)",[None]+list(df.columns))
         st.warning("L'imputation modifie l'information. Validez la stratégie avec le métier avant de créer CURATED.")
-        if st.button("Appliquer l'imputation"):
-            out=cleaner.impute(df,col,strategy,value if strategy=="constant" else None,group); log_transform("impute",df,out.dataframe,column=col,parameters=out.details); st.session_state.df=out.dataframe; st.session_state.stage="STAGING"; st.success(f"{out.changed_rows} valeur(s) imputée(s)."); st.rerun()
+        is_protected_identifier = any(
+            hint == col.lower() or col.lower().endswith(f"_{hint}")
+            for hint in cleaner.PROTECTED_NAME_HINTS
+        )
+        if is_protected_identifier:
+            st.info("Cette colonne ressemble à un identifiant. L’imputation automatique est désactivée pour préserver l’intégrité des clés.")
+        if st.button("Appliquer l'imputation", disabled=is_protected_identifier):
+            try:
+                out=cleaner.impute(df,col,strategy,value if strategy=="constant" else None,group)
+                log_transform("impute",df,out.dataframe,column=col,parameters=out.details)
+                st.session_state.df=out.dataframe
+                st.session_state.stage="STAGING"
+                st.success(f"{out.changed_rows} valeur(s) imputée(s).")
+                st.rerun()
+            except (KeyError, ValueError) as exc:
+                st.error(str(exc))
     elif action == "Standardiser catégories":
         col=st.selectbox("Colonne",list(df.columns)); st.write(df[col].value_counts(dropna=False).head(30)); raw_mapping=st.text_area("Mapping JSON", value='{"ABIDJAN":"Abidjan","abidjan":"Abidjan"}')
         if st.button("Appliquer mapping"):
