@@ -112,6 +112,70 @@ Pour une imputation, l’utilisateur sélectionne explicitement la cellule dans 
 
 Ce compromis est adapté à l’assurance : l’agent accélère la compréhension et la navigation, tandis que les règles de calcul et de sécurité restent sous contrôle logiciel.
 """),
+        md("""## 16. Modèles LLM utilisés, switches et stratégie de fallback
+
+`GeminiModelManager` est la passerelle LLM unique de l’application. Le code ne dépend pas d’un modèle écrit en dur dans l’interface : `Settings` lit `GEMINI_MODELS`, une liste ordonnée séparée par des virgules.
+
+Configuration par défaut du dépôt :
+
+```text
+1. gemini-3.5-flash-lite
+2. gemini-3.1-flash-lite
+3. gemini-3.8-flash
+```
+
+Le **switch de modèle** est automatique : pour chaque modèle, le gestionnaire tente l’appel jusqu’à `GEMINI_MAX_RETRIES` retries. Après les échecs du modèle courant, il passe au modèle suivant. La réponse indique le modèle réellement utilisé, le nombre de tentatives, la latence et si un fallback a été nécessaire.
+
+Les switches de comportement sont :
+
+- `GOOGLE_API_KEY` présente : planification JSON et explication LLM activées ;
+- clé absente ou client indisponible : mode offline, heuristique NL limitée, calculs métier toujours disponibles ;
+- `json_mode=True` : demande de réponse JSON pour les plans, avec température basse (`0.1`) ;
+- timeout configurable via `GEMINI_TIMEOUT_SECONDS` ;
+- retries avec backoff borné (`1.5 × 2^n`, plafonné à 8 secondes).
+
+Le modèle reste donc interchangeable. Pour ajouter un modèle compatible, on modifie la variable de configuration, sans changer `AnalysisAgent` ni les services de calcul.
+"""),
+        py("""from insurance_ai.core.config import settings
+from insurance_ai.services.gemini_manager import GeminiModelManager
+
+manager = GeminiModelManager()
+print('Modèles configurés :', manager.models)
+print('Timeout :', manager.timeout_seconds, 'secondes')
+print('Retries par modèle :', manager.max_retries)
+print('LLM activé :', manager.enabled)
+print('Clé exposée :', bool(manager.api_key), '(la valeur n’est jamais affichée)')
+"""),
+        md("""## 17. Stockage sécurisé de la clé API Gemini
+
+La clé est lue par `core/config.py` : d’abord depuis la variable d’environnement `GOOGLE_API_KEY`, puis depuis `st.secrets` si l’application tourne avec une configuration Streamlit. Elle est ensuite transmise uniquement au client `google-genai`. Elle n’est jamais incluse dans le prompt, le rapport, l’audit, le notebook ou les logs applicatifs.
+
+**En local :** copier `.env.example` vers `.env` et renseigner `GOOGLE_API_KEY`. Le `.gitignore` exclut `.env`; il ne faut jamais committer ce fichier.
+
+**Streamlit Community Cloud :** placer la clé dans `Settings → Secrets`. Le helper `_secret_or_env()` la récupère via `st.secrets` :
+
+```toml
+GOOGLE_API_KEY = "votre-cle-secrete"
+GEMINI_MODELS = "gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.8-flash"
+```
+
+**Docker, CI/CD ou cloud privé :** injecter `GOOGLE_API_KEY` comme variable d’environnement ou via un secret manager. Ne pas la passer en argument de commande, ne pas l’inscrire dans Git et ne pas l’afficher dans `st.write`, `print` ou une trace.
+
+La valeur peut être remplacée au runtime par un fournisseur de secrets ; le code métier ne change pas. En cas de rotation, remplacer le secret côté plateforme et redémarrer l’application. Si une clé a été exposée, la révoquer immédiatement auprès de Google et en générer une nouvelle.
+"""),
+        md("""## 18. Ce que le LLM fait et ne fait pas
+
+| Fonction | LLM Gemini | Code local testé |
+|---|---:|---:|
+| Comprendre une question NL | Oui | Fallback heuristique |
+| Proposer un plan JSON | Oui | Oui, plan offline |
+| Valider une colonne/opération | Non | Oui, `AnalysisAgent._validate_plan` |
+| Calculer un KPI assurance | Non | Oui, `InsuranceKPIService` |
+| Modifier une cellule | Non | Oui, action Streamlit + `CleaningService` |
+| Rédiger une explication | Oui, optionnel | Résultat déterministe conservé |
+
+Cette séparation limite les hallucinations : le modèle peut orienter et expliquer, mais les chiffres, les transformations et les autorisations restent sous contrôle de l’application.
+"""),
     ]
     notebook = {'cells': cells, 'metadata': {'kernelspec': {'display_name': 'Python 3', 'language': 'python', 'name': 'python3'}, 'language_info': {'name': 'python'}}, 'nbformat': 4, 'nbformat_minor': 5}
     destination = Path(__file__).resolve().parents[1] / 'docs' / 'AI_Insurance_Data_Analyst_Pedagogical.ipynb'

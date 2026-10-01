@@ -17,6 +17,19 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _secret_or_env(name: str, default: str = "") -> str:
+    """Read a secret without making Streamlit mandatory for the core layer."""
+    value = os.getenv(name)
+    if value:
+        return value
+    try:
+        import streamlit as st  # type: ignore
+        secret = st.secrets.get(name, default)
+        return str(secret) if secret else default
+    except Exception:
+        return default
+
+
 @dataclass(frozen=True)
 class Settings:
     app_name: str = os.getenv("APP_NAME", "AI Insurance Data Analyst V2")
@@ -26,7 +39,7 @@ class Settings:
     artifact_dir: Path = Path(os.getenv("APP_ARTIFACT_DIR", "./artifacts"))
     log_dir: Path = Path(os.getenv("APP_LOG_DIR", "./logs"))
     max_upload_mb: int = int(os.getenv("MAX_UPLOAD_MB", "200"))
-    google_api_key: str = os.getenv("GOOGLE_API_KEY", "")
+    google_api_key: str = _secret_or_env("GOOGLE_API_KEY")
     gemini_models: tuple[str, ...] = tuple(
         m.strip() for m in os.getenv(
             "GEMINI_MODELS",
