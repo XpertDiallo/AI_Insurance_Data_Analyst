@@ -10,7 +10,9 @@ def test_csv_detection_and_read():
     det = svc.detect_csv(raw)
     assert det.delimiter == ";"
     df, _ = svc.read_csv(raw, delimiter=";", decimal=",")
-    assert len(df) == 6
+    assert len(df) == 71
+    assert int(df.duplicated().sum()) == 5
+    assert int(df.isna().sum().sum()) > 0
     assert "written_premium" in df.columns
 
 
@@ -19,6 +21,6 @@ def test_excel_and_json():
     xraw = (ROOT / "insurance_sample.xlsx").read_bytes()
     assert svc.excel_sheets(xraw)
     xdf = svc.read_excel(xraw)
-    assert xdf.shape[0] == 6
+    assert xdf.shape[0] == 71
     jdf = svc.read_json((ROOT / "insurance_sample.json").read_bytes())
-    assert jdf.shape[0] == 6
+    assert jdf.shape[0] == 71

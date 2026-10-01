@@ -111,3 +111,5 @@ Les tests réseau Gemini, PostgreSQL/Access et le rendu Streamlit réel sont des
 - `docs/SECURITY.md`
 - `docs/TEST_PLAN.md`
 - `docs/MOA_TRACEABILITY.md`
+
+Les fichiers de démonstration dans `sample_data/` contiennent 71 enregistrements fictifs, dont 5 doublons exacts et plusieurs valeurs manquantes pour tester le profilage, la déduplication et l’imputation cellule par cellule. Le script reproductible est `scripts/generate_sample_data.py`.
