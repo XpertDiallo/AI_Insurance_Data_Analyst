@@ -31,7 +31,9 @@ footer { max-width:1100px; margin:0 auto 45px; padding:0 20px; color:var(--muted
 <main><section class="markdown-cell"><h2>AI Insurance Data Analyst V2 — notebook pédagogique</h2>
 <p>Ce notebook explique bloc par bloc le code de l’application et son lien avec l’orchestration Agentic AI.</p>
 <p>Principe directeur : <strong>l’IA comprend l’intention et explique ; les services déterministes calculent et modifient les données</strong>.</p>
-<p>Parcours : <code>CONNECT → PROFILE → CLEAN → VALIDATE → ANALYZE → EXPLAIN → VISUALIZE → REPORT → EXPORT</code>.</p></section><section class="markdown-cell"><h3>1. Architecture globale</h3>
+<p>Parcours : <code>CONNECT → PROFILE → CLEAN → VALIDATE → ANALYZE → EXPLAIN → VISUALIZE → REPORT → EXPORT</code>.</p></section><section class="markdown-cell"><h3>Guide de lecture — 18 blocs dans l’ordre</h3>
+<p>La progression suit le fonctionnement réel : comprendre l’architecture, préparer l’environnement et la mémoire, charger et fiabiliser les données, calculer les indicateurs, puis activer l’orchestration Agent IA et ses garde-fous LLM.</p>
+<p>1. Architecture · 2. Structure de l’Agent IA · 3. Bibliothèques Python · 4. Configuration et secrets · 5. Mémoire Streamlit · 6. Ingestion · 7. Qualité · 8. Nettoyage · 9. Versions · 10. KPI · 11. Dashboard · 12. Analytics · 13. Agents · 14. Gemini · 15. Switches LLM · 16. Clé API · 17. Reporting et sécurité · 18. Rôle du LLM. Les flux complets et limites sont présentés en annexes.</p></section><section class="markdown-cell"><h3>Bloc 1 — Architecture globale</h3>
 <pre><code>Utilisateur → Streamlit/app.py → SupervisorAgent/AnalysisAgent
                                       │
         ┌─────────────────────────────┴─────────────────────────────┐
@@ -41,7 +43,7 @@ footer { max-width:1100px; margin:0 auto 45px; padding:0 20px; color:var(--muted
                            ProjectStore + AuditLogger
 
 GeminiModelManager : planification JSON et explication, jamais calcul financier.</code></pre>
-<p>Une boucle agentique observe l’état, planifie, choisit un outil autorisé, exécute, vérifie et journalise. Elle ne lance pas de Python arbitraire.</p></section><section class="markdown-cell"><h3>1.1 Structure réelle de l’Agent IA créé dans l’application</h3>
+<p>Une boucle agentique observe l’état, planifie, choisit un outil autorisé, exécute, vérifie et journalise. Elle ne lance pas de Python arbitraire.</p></section><section class="markdown-cell"><h3>Bloc 2 — Structure réelle de l’Agent IA</h3>
 <p>L’application met en place un <strong>agent hybride et gouverné</strong>, et non un chatbot qui exécute librement du code :</p>
 <pre><code>Question / action → Streamlit + session_state
                            ↓
@@ -64,7 +66,7 @@ GeminiModelManager : planification JSON et explication, jamais calcul financier.
 <li><code>ProfilingService</code>, <code>CleaningService</code>, <code>InsuranceKPIService</code>, <code>DashboardService</code> et les services de reporting sont les outils métier déterministes.</li>
 <li><code>ProjectStore</code> persiste les versions ; <code>AuditLogger</code> trace les transformations, analyses et exports.</li>
 </ul>
-<p>Cette structure suit le pattern <strong>planner → validator → tool executor → verifier/auditor</strong>. La dimension agentique vient de l’orchestration contrôlée et de la gestion d’état.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 4</div><pre><code>from insurance_ai.agents.analysis_agent import AnalysisAgent
+<p>Cette structure suit le pattern <strong>planner → validator → tool executor → verifier/auditor</strong>. La dimension agentique vient de l’orchestration contrôlée et de la gestion d’état.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 5</div><pre><code>from insurance_ai.agents.analysis_agent import AnalysisAgent
 from insurance_ai.agents.supervisor import SupervisorAgent
 from insurance_ai.services.analytics import AnalyticsService
 
@@ -73,7 +75,7 @@ agent = AnalysisAgent(analytics=AnalyticsService())
 print(&#x27;Routage analyse :&#x27;, supervisor.route(&#x27;analyze&#x27;))
 print(&#x27;Opérations autorisées :&#x27;, sorted(agent.analytics.OPS))
 print(&#x27;LLM activé :&#x27;, agent.llm.enabled)
-</code></pre></section><section class="code-cell"><div class="cell-label">Bloc Python 5</div><pre><code>from pathlib import Path
+</code></pre></section><section class="code-cell"><div class="cell-label">Bloc Python 6</div><pre><code>from pathlib import Path
 import pandas as pd
 PROJECT_ROOT = Path.cwd()
 if not (PROJECT_ROOT / &#x27;insurance_ai&#x27;).exists(): PROJECT_ROOT = PROJECT_ROOT.parent
@@ -82,7 +84,7 @@ df = pd.read_csv(DATA_PATH)
 print(len(df), &#x27;lignes |&#x27;, len(df.columns), &#x27;colonnes&#x27;)
 print(&#x27;doublons =&#x27;, int(df.duplicated().sum()), &#x27;| NA =&#x27;, int(df.isna().sum().sum()))
 df.head()
-</code></pre></section><section class="markdown-cell"><h3>Grandes composantes Python et utilité Agent IA</h3>
+</code></pre></section><section class="markdown-cell"><h3>Bloc 3 — Grandes composantes Python et utilité Agent IA</h3>
 <p>Les dépendances sont organisées par responsabilité :</p>
 <ul>
 <li><strong>Interface et état</strong> : <code>streamlit</code> affiche les pages, widgets, messages et téléchargements ; <code>st.session_state</code> conserve la mémoire de travail du workflow.</li>
@@ -94,57 +96,57 @@ df.head()
 <li><strong>Sécurité/configuration</strong> : <code>python-dotenv</code> charge l’environnement, <code>bcrypt</code> protège les mots de passe, <code>chardet</code> aide à détecter les encodages.</li>
 <li><strong>Qualité</strong> : <code>pytest</code> vérifie les parcours critiques avant déploiement.</li>
 </ul>
-<p>Cette séparation transforme un LLM généraliste en orchestrateur d’outils spécialisés : il choisit l’outil, mais ne remplace pas les bibliothèques déterministes.</p></section><section class="markdown-cell"><h3>2. Configuration et initialisation de <code>app.py</code></h3>
+<p>Cette séparation transforme un LLM généraliste en orchestrateur d’outils spécialisés : il choisit l’outil, mais ne remplace pas les bibliothèques déterministes.</p></section><section class="markdown-cell"><h3>Bloc 4 — Configuration et initialisation de Streamlit</h3>
 <p><code>core/config.py</code> construit <code>Settings</code> à partir des variables d’environnement : répertoires, taille maximale d’upload, clé Gemini, modèles autorisés, retries et timeout. Les secrets ne sont jamais codés dans l’application.</p>
 <p><code>app.py</code> instancie <code>ProjectStore</code>, <code>AuditLogger</code>, <code>IngestionService</code>, <code>ProfilingService</code>, <code>CleaningService</code>, <code>DashboardService</code>, <code>ReportGenerator</code>, etc. <code>st.session_state</code> conserve utilisateur, projet, dataset actif et résultats entre deux reruns.</p>
-<p>Le rechargement défensif des services traite les processus Streamlit qui gardent un ancien module Python en mémoire.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 8</div><pre><code>import os
+<p>Le rechargement défensif des services traite les processus Streamlit qui gardent un ancien module Python en mémoire.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 9</div><pre><code>import os
 print(&#x27;APP_ENV =&#x27;, os.getenv(&#x27;APP_ENV&#x27;, &#x27;development&#x27;))
 print(&#x27;Gemini configuré =&#x27;, bool(os.getenv(&#x27;GOOGLE_API_KEY&#x27;)))
 print(&#x27;Limite upload =&#x27;, os.getenv(&#x27;MAX_UPLOAD_MB&#x27;, &#x27;200&#x27;), &#x27;MB&#x27;)
-</code></pre></section><section class="markdown-cell"><h3>Mémoire de l’agent et fonctionnement Streamlit</h3>
+</code></pre></section><section class="markdown-cell"><h3>Bloc 5 — Mémoire de l’agent et cycle Streamlit</h3>
 <p>Streamlit réexécute <code>app.py</code> après une interaction. La mémoire courte est donc explicitement placée dans <code>st.session_state</code> : utilisateur, <code>project_id</code>, <code>df</code>, stade RAW/STAGING/CURATED, résultats d’analyse, graphiques et aperçu RAW.</p>
 <p>La mémoire durable est séparée : <code>ProjectStore</code> conserve les versions de datasets et <code>AuditLogger</code> conserve les événements SQLite. <code>analysis_results</code> garde les résultats utiles au rapport, mais ce projet ne prétend pas être une mémoire conversationnelle complète : l’historique NL est structuré par résultats, pas par une conversation libre illimitée.</p>
-<p><code>st.rerun()</code> recharge l’interface après une mutation afin que les sélecteurs, les NA et les cartes reflètent immédiatement le nouvel état. <code>st.cache_data</code> n’est pas utilisé par défaut : l’état métier doit rester explicite et éviter de mélanger les sessions.</p></section><section class="markdown-cell"><h3>3. Ingestion et prévisualisation RAW</h3>
+<p><code>st.rerun()</code> recharge l’interface après une mutation afin que les sélecteurs, les NA et les cartes reflètent immédiatement le nouvel état. <code>st.cache_data</code> n’est pas utilisé par défaut : l’état métier doit rester explicite et éviter de mélanger les sessions.</p></section><section class="markdown-cell"><h3>Bloc 6 — Ingestion et prévisualisation RAW</h3>
 <p><code>IngestionService</code> détecte encodage, séparateur et décimale des CSV, liste les feuilles Excel et aplati les JSON tabulaires. La page Importer contrôle la taille, affiche le parsing puis appelle <code>save_version(..., stage=&#x27;RAW&#x27;)</code>.</p>
-<p>L’aperçu RAW est conservé dans la session pour rester visible après un rerun ou un nettoyage STAGING. RAW est la copie de la source et ne doit pas être écrasé.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 11</div><pre><code>from insurance_ai.services.ingestion import IngestionService
+<p>L’aperçu RAW est conservé dans la session pour rester visible après un rerun ou un nettoyage STAGING. RAW est la copie de la source et ne doit pas être écrasé.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 12</div><pre><code>from insurance_ai.services.ingestion import IngestionService
 ingestion = IngestionService()
 detection = ingestion.detect_csv(DATA_PATH.read_bytes())
 loaded, info = ingestion.read_uploaded(DATA_PATH.name, DATA_PATH.read_bytes())
 print(detection)
 print(info)
 loaded.head(3)
-</code></pre></section><section class="markdown-cell"><h3>4. Profilage et qualité</h3>
+</code></pre></section><section class="markdown-cell"><h3>Bloc 7 — Profilage et qualité</h3>
 <p><code>ProfilingService.profile(df)</code> calcule dimensions, types, types sémantiques, NA, cardinalité, exemples, min/max/moyenne/médiane et score qualité. Il ne modifie pas le DataFrame.</p>
-<p>Les règles métier (<code>not_null</code>, <code>unique</code>, <code>non_negative</code>, <code>allowed_values</code>, <code>date_order</code>) évaluent les violations et peuvent alimenter un rapport.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 13</div><pre><code>from insurance_ai.services.profiling import ProfilingService
+<p>Les règles métier (<code>not_null</code>, <code>unique</code>, <code>non_negative</code>, <code>allowed_values</code>, <code>date_order</code>) évaluent les violations et peuvent alimenter un rapport.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 14</div><pre><code>from insurance_ai.services.profiling import ProfilingService
 profile = ProfilingService().profile(df)
 print(profile.summary)
 print(&#x27;doublons =&#x27;, profile.duplicate_rows)
 profile.columns[[&#x27;column&#x27;, &#x27;missing&#x27;, &#x27;missing_pct&#x27;, &#x27;semantic_type&#x27;]]
-</code></pre></section><section class="markdown-cell"><h3>5. Nettoyage et imputation cellule par cellule</h3>
+</code></pre></section><section class="markdown-cell"><h3>Bloc 8 — Nettoyage et imputation cellule par cellule</h3>
 <p><code>CleaningService</code> expose normalisation, déduplication, cast, catégories, filtres et imputation. L’UI liste dynamiquement les variables avec NA, sélectionne une ligne, choisit une stratégie puis appelle <code>impute_cell</code>. Après chaque action, Streamlit rerun, recalcule les NA et écrit un <code>TransformationRecord</code>.</p>
-<p>Les identifiants potentiels ne peuvent recevoir qu’une valeur manuelle vérifiée : une moyenne ne doit jamais inventer une clé de police ou de sinistre.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 15</div><pre><code>from insurance_ai.services.cleaning import CleaningService
+<p>Les identifiants potentiels ne peuvent recevoir qu’une valeur manuelle vérifiée : une moyenne ne doit jamais inventer une clé de police ou de sinistre.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 16</div><pre><code>from insurance_ai.services.cleaning import CleaningService
 cleaner = CleaningService()
 positions = [i for i, missing in enumerate(df[&#x27;region&#x27;].isna()) if missing]
 outcome = cleaner.impute_cell(df, &#x27;region&#x27;, positions[0], &#x27;manual&#x27;, &#x27;Abidjan&#x27;)
 print(outcome.details)
 print(&#x27;NA avant/après =&#x27;, df.region.isna().sum(), outcome.dataframe.region.isna().sum())
-</code></pre></section><section class="markdown-cell"><h3>6. Versions RAW / STAGING / CURATED</h3>
-<p><code>ProjectStore</code> écrit les datasets dans un projet et conserve source, stade, parent, dimensions, empreinte et chemin relatif. RAW conserve la source ; STAGING porte les transformations ; CURATED est la version validée et autorisée pour les analyses.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 17</div><pre><code>from tempfile import TemporaryDirectory
+</code></pre></section><section class="markdown-cell"><h3>Bloc 9 — Versions RAW / STAGING / CURATED</h3>
+<p><code>ProjectStore</code> écrit les datasets dans un projet et conserve source, stade, parent, dimensions, empreinte et chemin relatif. RAW conserve la source ; STAGING porte les transformations ; CURATED est la version validée et autorisée pour les analyses.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 18</div><pre><code>from tempfile import TemporaryDirectory
 from insurance_ai.core.project_store import ProjectStore
 with TemporaryDirectory() as folder:
     store = ProjectStore(folder)
     project_id = store.create_project(&#x27;Notebook&#x27;, owner=&#x27;demo&#x27;)
     raw_meta = store.save_dataframe(project_id, df, name=&#x27;sample&#x27;, stage=&#x27;RAW&#x27;, source_type=&#x27;csv&#x27;, source_name=DATA_PATH.name)
     print(raw_meta.to_dict())
-</code></pre></section><section class="markdown-cell"><h3>7. KPI assurance déterministes</h3>
-<p><code>InsuranceKPIService</code> calcule S/P, coût moyen, fréquence, encaissement, cession et rétention. Les résultats contiennent valeur, formule et avertissements ; les dénominateurs nuls sont traités. Gemini ne produit jamais ces chiffres.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 19</div><pre><code>from insurance_ai.services.insurance_kpi import InsuranceKPIService
+</code></pre></section><section class="markdown-cell"><h3>Bloc 10 — KPI assurance déterministes</h3>
+<p><code>InsuranceKPIService</code> calcule S/P, coût moyen, fréquence, encaissement, cession et rétention. Les résultats contiennent valeur, formule et avertissements ; les dénominateurs nuls sont traités. Gemini ne produit jamais ces chiffres.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 20</div><pre><code>from insurance_ai.services.insurance_kpi import InsuranceKPIService
 kpis = InsuranceKPIService()
 loss_ratio = kpis.loss_ratio(df, &#x27;claim_amount&#x27;, &#x27;written_premium&#x27;)
 print(loss_ratio)
 print(kpis.as_display(loss_ratio))
-</code></pre></section><section class="markdown-cell"><h3>8. Dashboard sur RAW et CURATED</h3>
+</code></pre></section><section class="markdown-cell"><h3>Bloc 11 — Dashboard sur RAW et CURATED</h3>
 <p><code>DashboardService.metric_columns</code> filtre selon le sens métier : primes (<code>written_premium</code>, <code>collected_premium</code>, <code>ceded_premium</code>, <code>net_premium</code>) et sinistres (<code>claim_amount</code>, coûts ou montants). Les identifiants sont exclus.</p>
-<p>Le même service reçoit le DataFrame RAW ou CURATED actif et produit cartes KPI, segments, tendances et principaux sinistres.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 21</div><pre><code>from insurance_ai.services.dashboard import DashboardService
+<p>Le même service reçoit le DataFrame RAW ou CURATED actif et produit cartes KPI, segments, tendances et principaux sinistres.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 22</div><pre><code>from insurance_ai.services.dashboard import DashboardService
 dashboard = DashboardService()
 premium_cols = dashboard.metric_columns(df, &#x27;premium&#x27;)
 claim_cols = dashboard.metric_columns(df, &#x27;claims&#x27;)
@@ -152,57 +154,25 @@ print(&#x27;primes =&#x27;, premium_cols)
 print(&#x27;sinistres =&#x27;, claim_cols)
 view = dashboard.portfolio_overview(df, premium_col=premium_cols[0], claims_col=claim_cols[0], group_col=&#x27;branch&#x27;, date_col=&#x27;effective_date&#x27;)
 view.cards
-</code></pre></section><section class="markdown-cell"><h3>9. Analytics allow-listées</h3>
+</code></pre></section><section class="markdown-cell"><h3>Bloc 12 — Analytics allow-listées</h3>
 <p><code>AnalyticsService.OPS</code> autorise seulement description, comptage, agrégations, top valeurs et corrélations. Les filtres sont limités à <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>contains</code>.</p>
-<p>Même si Gemini propose un plan invalide, <code>_validate_plan</code> le rejette avant exécution. Aucun <code>eval()</code>/<code>exec()</code> n’est utilisé.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 23</div><pre><code>from insurance_ai.services.analytics import AnalyticsService
+<p>Même si Gemini propose un plan invalide, <code>_validate_plan</code> le rejette avant exécution. Aucun <code>eval()</code>/<code>exec()</code> n’est utilisé.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 24</div><pre><code>from insurance_ai.services.analytics import AnalyticsService
 analytics = AnalyticsService()
 result = analytics.execute(df, {&#x27;operation&#x27;: &#x27;mean&#x27;, &#x27;column&#x27;: &#x27;written_premium&#x27;, &#x27;filters&#x27;: []})
 print(result.answer)
 print(result.calculation)
-</code></pre></section><section class="markdown-cell"><h3>10. SupervisorAgent et AnalysisAgent</h3>
+</code></pre></section><section class="markdown-cell"><h3>Bloc 13 — SupervisorAgent et AnalysisAgent</h3>
 <p><code>SupervisorAgent.route()</code> choisit profilage, nettoyage ou analyse. <code>AnalysisAgent</code> résume le schéma, demande éventuellement à Gemini un plan JSON, valide opération/colonnes/filtres puis délègue à <code>AnalyticsService</code>.</p>
-<p>Sans clé Gemini, une heuristique offline reconnaît moyenne, somme, corrélation, top valeurs et description. Avec Gemini, seul le plan est généré ; Pandas calcule.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 25</div><pre><code>from insurance_ai.agents.supervisor import SupervisorAgent
+<p>Sans clé Gemini, une heuristique offline reconnaît moyenne, somme, corrélation, top valeurs et description. Avec Gemini, seul le plan est généré ; Pandas calcule.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 26</div><pre><code>from insurance_ai.agents.supervisor import SupervisorAgent
 supervisor = SupervisorAgent()
 print(supervisor.route(&#x27;analyze&#x27;))
 answer, plan = supervisor.ask(&#x27;Quelle est la moyenne de written_premium ?&#x27;, df)
 print(&#x27;plan =&#x27;, plan)
 print(&#x27;résultat =&#x27;, answer.data)
 print(&#x27;calcul =&#x27;, answer.calculation)
-</code></pre></section><section class="markdown-cell"><h3>11. GeminiModelManager : fallback et gouvernance</h3>
+</code></pre></section><section class="markdown-cell"><h3>Bloc 14 — GeminiModelManager et gouvernance LLM</h3>
 <p>Le gestionnaire centralise timeout, retries avec backoff, modèles de secours et latence. <code>generate_json</code> parse les plans. Si tous les modèles échouent, qualité, nettoyage, KPI, dashboard et reporting restent disponibles.</p>
-<p>Le prompt reçoit un résumé de schéma plutôt que le dataset complet ; l’explication reçoit un résultat compact et doit mentionner la méthode sans inventer de nombres.</p></section><section class="markdown-cell"><h3>12. Reporting, audit et sécurité</h3>
-<p><code>ReportPayload</code> alimente les rendus HTML/PDF/DOCX/PPTX/XLSX. <code>AuditLogger</code> journalise transformations, analyses et exports dans SQLite avec requêtes paramétrées.</p>
-<p>Garde-fous : secrets hors Git, uploads limités, SQL lecture seule, chemins confinés, RAW préservé, identifiants protégés, opérations NL allow-listées et séparation logique des projets.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 28</div><pre><code>from insurance_ai.core.models import TransformationRecord
-record = TransformationRecord(transformation_id=&#x27;demo-001&#x27;, dataset_id=&#x27;raw-demo&#x27;, operation=&#x27;impute_cell&#x27;, column=&#x27;region&#x27;, parameters={&#x27;row_position&#x27;: 9, &#x27;strategy&#x27;: &#x27;manual&#x27;, &#x27;value&#x27;: &#x27;Abidjan&#x27;}, rows_before=len(df), rows_after=len(df), user=&#x27;demo&#x27;)
-record.to_dict()
-</code></pre></section><section class="markdown-cell"><h3>13. Flux complet Agentic AI</h3>
-<pre><code>Question → observation du schéma/session → plan JSON
-        → validation allow-list → outil Pandas/KPI/dashboard
-        → résultat déterministe → explication Gemini
-        → audit + ajout éventuel au rapport</code></pre>
-<p>La valeur agentique vient de la coordination des outils et de la gestion de l’état. La sécurité vient de la validation avant l’action. Une évolution possible est de séparer des agents Ingestion, Qualité, Assurance, Visualisation et Reporting en conservant les mêmes contrats déterministes.</p></section><section class="markdown-cell"><h3>Références du dépôt</h3>
-<ul>
-<li><code>app.py</code> : UI Streamlit, session et parcours utilisateur</li>
-<li><code>insurance_ai/agents/analysis_agent.py</code> : planification/explanation NL</li>
-<li><code>insurance_ai/agents/supervisor.py</code> : routage</li>
-<li><code>insurance_ai/services/analytics.py</code> : opérations allow-listées</li>
-<li><code>insurance_ai/services/gemini_manager.py</code> : fallback Gemini</li>
-<li><code>insurance_ai/core/project_store.py</code> : versions RAW/STAGING/CURATED</li>
-<li><code>insurance_ai/core/audit.py</code> : audit SQLite</li>
-<li><code>docs/ARCHITECTURE.md</code>, <code>docs/SECURITY.md</code>, <code>docs/MOA_TRACEABILITY.md</code> : documentation de référence</li>
-</ul></section><section class="markdown-cell"><h3>14. Lecture pédagogique d’un cycle agentique complet</h3>
-<p>Pour « Quelle est la moyenne de <code>written_premium</code> ? », le cycle réel est :</p>
-<p>1. <strong>Observer</strong> : l’agent reçoit la question et un résumé du schéma, pas le dataset complet envoyé au modèle. 2. <strong>Planifier</strong> : Gemini retourne un JSON si disponible ; sinon l’heuristique locale détecte la moyenne et la colonne. 3. <strong>Valider</strong> : opération, colonnes et opérateurs de filtre sont contrôlés côté serveur. 4. <strong>Exécuter</strong> : <code>AnalyticsService.execute()</code> calcule avec Pandas et conserve valeur, formule et avertissements. 5. <strong>Expliquer</strong> : Gemini peut reformuler le résultat compact sans inventer de nombre ; le fallback reste disponible. 6. <strong>Tracer</strong> : le résultat peut rejoindre le rapport et l’action être journalisée par <code>AuditLogger</code>.</p>
-<p>Pour une imputation, l’utilisateur sélectionne explicitement la cellule dans Streamlit. <code>CleaningService.impute_cell</code> contrôle le type et les identifiants potentiels, puis la transformation passe en STAGING et est auditée. L’IA ne décide donc jamais seule de remplacer une clé de police ou de sinistre.</p></section><section class="markdown-cell"><h3>15. Limites et bonnes pratiques d’un Agent IA en production</h3>
-<ul>
-<li><strong>Déterminisme métier</strong> : primes, sinistres, S/P et rétentions restent calculés par du code testé.</li>
-<li><strong>Contrat de sortie</strong> : le modèle produit un JSON limité ; aucun SQL arbitraire ou Python généré n’est exécuté.</li>
-<li><strong>Minimisation</strong> : le modèle reçoit un schéma et des résultats compacts, pas nécessairement toutes les données sensibles.</li>
-<li><strong>Résilience</strong> : retries, modèles de secours et mode offline permettent de continuer sans Gemini.</li>
-<li><strong>Réversibilité</strong> : RAW est conservé, les transformations sont versionnées et les opérations critiques sont auditées.</li>
-<li><strong>Évaluation</strong> : les tests couvrent plans invalides, colonnes inconnues, données vides et erreurs de modèle.</li>
-</ul>
-<p>Ce compromis est adapté à l’assurance : l’agent accélère la compréhension et la navigation, tandis que les règles de calcul et de sécurité restent sous contrôle logiciel.</p></section><section class="markdown-cell"><h3>16. Modèles LLM utilisés, switches et stratégie de fallback</h3>
+<p>Le prompt reçoit un résumé de schéma plutôt que le dataset complet ; l’explication reçoit un résultat compact et doit mentionner la méthode sans inventer de nombres.</p></section><section class="markdown-cell"><h3>Bloc 15 — Modèles LLM, switches et fallback</h3>
 <p><code>GeminiModelManager</code> est la passerelle LLM unique de l’application. Le code ne dépend pas d’un modèle écrit en dur dans l’interface : <code>Settings</code> lit <code>GEMINI_MODELS</code>, une liste ordonnée séparée par des virgules.</p>
 <p>Configuration par défaut du dépôt :</p>
 <pre><code>1. gemini-3.5-flash-lite
@@ -217,7 +187,7 @@ record.to_dict()
 <li>timeout configurable via <code>GEMINI_TIMEOUT_SECONDS</code> ;</li>
 <li>retries avec backoff borné (<code>1.5 × 2^n</code>, plafonné à 8 secondes).</li>
 </ul>
-<p>Le modèle reste donc interchangeable. Pour ajouter un modèle compatible, on modifie la variable de configuration, sans changer <code>AnalysisAgent</code> ni les services de calcul.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 34</div><pre><code>from insurance_ai.core.config import settings
+<p>Le modèle reste donc interchangeable. Pour ajouter un modèle compatible, on modifie la variable de configuration, sans changer <code>AnalysisAgent</code> ni les services de calcul.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 29</div><pre><code>from insurance_ai.core.config import settings
 from insurance_ai.services.gemini_manager import GeminiModelManager
 
 manager = GeminiModelManager()
@@ -226,16 +196,48 @@ print(&#x27;Timeout :&#x27;, manager.timeout_seconds, &#x27;secondes&#x27;)
 print(&#x27;Retries par modèle :&#x27;, manager.max_retries)
 print(&#x27;LLM activé :&#x27;, manager.enabled)
 print(&#x27;Clé exposée :&#x27;, bool(manager.api_key), &#x27;(la valeur n’est jamais affichée)&#x27;)
-</code></pre></section><section class="markdown-cell"><h3>17. Stockage sécurisé de la clé API Gemini</h3>
+</code></pre></section><section class="markdown-cell"><h3>Bloc 16 — Stockage sécurisé de la clé API Gemini</h3>
 <p>La clé est lue par <code>core/config.py</code> : d’abord depuis la variable d’environnement <code>GOOGLE_API_KEY</code>, puis depuis <code>st.secrets</code> si l’application tourne avec une configuration Streamlit. Elle est ensuite transmise uniquement au client <code>google-genai</code>. Elle n’est jamais incluse dans le prompt, le rapport, l’audit, le notebook ou les logs applicatifs.</p>
 <p><strong>En local :</strong> copier <code>.env.example</code> vers <code>.env</code> et renseigner <code>GOOGLE_API_KEY</code>. Le <code>.gitignore</code> exclut <code>.env</code>; il ne faut jamais committer ce fichier.</p>
 <p><strong>Streamlit Community Cloud :</strong> placer la clé dans <code>Settings → Secrets</code>. Le helper <code>_secret_or_env()</code> la récupère via <code>st.secrets</code> :</p>
 <pre><code>GOOGLE_API_KEY = &quot;votre-cle-secrete&quot;
 GEMINI_MODELS = &quot;gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.8-flash&quot;</code></pre>
 <p><strong>Docker, CI/CD ou cloud privé :</strong> injecter <code>GOOGLE_API_KEY</code> comme variable d’environnement ou via un secret manager. Ne pas la passer en argument de commande, ne pas l’inscrire dans Git et ne pas l’afficher dans <code>st.write</code>, <code>print</code> ou une trace.</p>
-<p>La valeur peut être remplacée au runtime par un fournisseur de secrets ; le code métier ne change pas. En cas de rotation, remplacer le secret côté plateforme et redémarrer l’application. Si une clé a été exposée, la révoquer immédiatement auprès de Google et en générer une nouvelle.</p></section><section class="markdown-cell"><h3>18. Ce que le LLM fait et ne fait pas</h3>
+<p>La valeur peut être remplacée au runtime par un fournisseur de secrets ; le code métier ne change pas. En cas de rotation, remplacer le secret côté plateforme et redémarrer l’application. Si une clé a été exposée, la révoquer immédiatement auprès de Google et en générer une nouvelle.</p></section><section class="markdown-cell"><h3>Bloc 17 — Reporting, audit et sécurité</h3>
+<p><code>ReportPayload</code> alimente les rendus HTML/PDF/DOCX/PPTX/XLSX. <code>AuditLogger</code> journalise transformations, analyses et exports dans SQLite avec requêtes paramétrées.</p>
+<p>Garde-fous : secrets hors Git, uploads limités, SQL lecture seule, chemins confinés, RAW préservé, identifiants protégés, opérations NL allow-listées et séparation logique des projets.</p></section><section class="code-cell"><div class="cell-label">Bloc Python 32</div><pre><code>from insurance_ai.core.models import TransformationRecord
+record = TransformationRecord(transformation_id=&#x27;demo-001&#x27;, dataset_id=&#x27;raw-demo&#x27;, operation=&#x27;impute_cell&#x27;, column=&#x27;region&#x27;, parameters={&#x27;row_position&#x27;: 9, &#x27;strategy&#x27;: &#x27;manual&#x27;, &#x27;value&#x27;: &#x27;Abidjan&#x27;}, rows_before=len(df), rows_after=len(df), user=&#x27;demo&#x27;)
+record.to_dict()
+</code></pre></section><section class="markdown-cell"><h3>Bloc 18 — Ce que le LLM fait et ne fait pas</h3>
 <p>| Fonction | LLM Gemini | Code local testé | |---|---:|---:| | Comprendre une question NL | Oui | Fallback heuristique | | Proposer un plan JSON | Oui | Oui, plan offline | | Valider une colonne/opération | Non | Oui, <code>AnalysisAgent._validate_plan</code> | | Calculer un KPI assurance | Non | Oui, <code>InsuranceKPIService</code> | | Modifier une cellule | Non | Oui, action Streamlit + <code>CleaningService</code> | | Rédiger une explication | Oui, optionnel | Résultat déterministe conservé |</p>
-<p>Cette séparation limite les hallucinations : le modèle peut orienter et expliquer, mais les chiffres, les transformations et les autorisations restent sous contrôle de l’application.</p></section></main>
+<p>Cette séparation limite les hallucinations : le modèle peut orienter et expliquer, mais les chiffres, les transformations et les autorisations restent sous contrôle de l’application.</p></section><section class="markdown-cell"><h3>Annexe A — Flux complet Agentic AI</h3>
+<pre><code>Question → observation du schéma/session → plan JSON
+        → validation allow-list → outil Pandas/KPI/dashboard
+        → résultat déterministe → explication Gemini
+        → audit + ajout éventuel au rapport</code></pre>
+<p>La valeur agentique vient de la coordination des outils et de la gestion de l’état. La sécurité vient de la validation avant l’action. Une évolution possible est de séparer des agents Ingestion, Qualité, Assurance, Visualisation et Reporting en conservant les mêmes contrats déterministes.</p></section><section class="markdown-cell"><h3>Annexe B — Lecture d’un cycle agentique complet</h3>
+<p>Pour « Quelle est la moyenne de <code>written_premium</code> ? », le cycle réel est :</p>
+<p>1. <strong>Observer</strong> : l’agent reçoit la question et un résumé du schéma, pas le dataset complet envoyé au modèle. 2. <strong>Planifier</strong> : Gemini retourne un JSON si disponible ; sinon l’heuristique locale détecte la moyenne et la colonne. 3. <strong>Valider</strong> : opération, colonnes et opérateurs de filtre sont contrôlés côté serveur. 4. <strong>Exécuter</strong> : <code>AnalyticsService.execute()</code> calcule avec Pandas et conserve valeur, formule et avertissements. 5. <strong>Expliquer</strong> : Gemini peut reformuler le résultat compact sans inventer de nombre ; le fallback reste disponible. 6. <strong>Tracer</strong> : le résultat peut rejoindre le rapport et l’action être journalisée par <code>AuditLogger</code>.</p>
+<p>Pour une imputation, l’utilisateur sélectionne explicitement la cellule dans Streamlit. <code>CleaningService.impute_cell</code> contrôle le type et les identifiants potentiels, puis la transformation passe en STAGING et est auditée. L’IA ne décide donc jamais seule de remplacer une clé de police ou de sinistre.</p></section><section class="markdown-cell"><h3>Annexe C — Limites et bonnes pratiques en production</h3>
+<ul>
+<li><strong>Déterminisme métier</strong> : primes, sinistres, S/P et rétentions restent calculés par du code testé.</li>
+<li><strong>Contrat de sortie</strong> : le modèle produit un JSON limité ; aucun SQL arbitraire ou Python généré n’est exécuté.</li>
+<li><strong>Minimisation</strong> : le modèle reçoit un schéma et des résultats compacts, pas nécessairement toutes les données sensibles.</li>
+<li><strong>Résilience</strong> : retries, modèles de secours et mode offline permettent de continuer sans Gemini.</li>
+<li><strong>Réversibilité</strong> : RAW est conservé, les transformations sont versionnées et les opérations critiques sont auditées.</li>
+<li><strong>Évaluation</strong> : les tests couvrent plans invalides, colonnes inconnues, données vides et erreurs de modèle.</li>
+</ul>
+<p>Ce compromis est adapté à l’assurance : l’agent accélère la compréhension et la navigation, tandis que les règles de calcul et de sécurité restent sous contrôle logiciel.</p></section><section class="markdown-cell"><h3>Références du dépôt</h3>
+<ul>
+<li><code>app.py</code> : UI Streamlit, session et parcours utilisateur</li>
+<li><code>insurance_ai/agents/analysis_agent.py</code> : planification/explanation NL</li>
+<li><code>insurance_ai/agents/supervisor.py</code> : routage</li>
+<li><code>insurance_ai/services/analytics.py</code> : opérations allow-listées</li>
+<li><code>insurance_ai/services/gemini_manager.py</code> : fallback Gemini</li>
+<li><code>insurance_ai/core/project_store.py</code> : versions RAW/STAGING/CURATED</li>
+<li><code>insurance_ai/core/audit.py</code> : audit SQLite</li>
+<li><code>docs/ARCHITECTURE.md</code>, <code>docs/SECURITY.md</code>, <code>docs/MOA_TRACEABILITY.md</code> : documentation de référence</li>
+</ul></section></main>
 <footer>Document généré depuis docs/AI_Insurance_Data_Analyst_Pedagogical.ipynb. Les calculs restent exécutables dans le notebook et validés par les tests du projet.</footer>
 </body>
 </html>

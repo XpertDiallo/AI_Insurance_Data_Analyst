@@ -11,6 +11,12 @@ def py(text: str) -> dict:
 
 def main() -> None:
     cells = [
+        md("""## Guide de lecture — 18 blocs dans l’ordre
+
+La progression suit le fonctionnement réel : comprendre l’architecture, préparer l’environnement et la mémoire, charger et fiabiliser les données, calculer les indicateurs, puis activer l’orchestration Agent IA et ses garde-fous LLM.
+
+1. Architecture · 2. Structure de l’Agent IA · 3. Bibliothèques Python · 4. Configuration et secrets · 5. Mémoire Streamlit · 6. Ingestion · 7. Qualité · 8. Nettoyage · 9. Versions · 10. KPI · 11. Dashboard · 12. Analytics · 13. Agents · 14. Gemini · 15. Switches LLM · 16. Clé API · 17. Reporting et sécurité · 18. Rôle du LLM. Les flux complets et limites sont présentés en annexes.
+"""),
         md("""# AI Insurance Data Analyst V2 — notebook pédagogique\n\nCe notebook explique bloc par bloc le code de l’application et son lien avec l’orchestration Agentic AI.\n\nPrincipe directeur : **l’IA comprend l’intention et explique ; les services déterministes calculent et modifient les données**.\n\nParcours : `CONNECT → PROFILE → CLEAN → VALIDATE → ANALYZE → EXPLAIN → VISUALIZE → REPORT → EXPORT`.\n"""),
         md("""## 1. Architecture globale\n\n```text\nUtilisateur → Streamlit/app.py → SupervisorAgent/AnalysisAgent\n                                      │\n        ┌─────────────────────────────┴─────────────────────────────┐\n        │ Ingestion │ Profiling │ Cleaning │ Analytics │ KPI │ Report │\n        └─────────────────────────────┬─────────────────────────────┘\n                                      ▼\n                           ProjectStore + AuditLogger\n\nGeminiModelManager : planification JSON et explication, jamais calcul financier.\n```\n\nUne boucle agentique observe l’état, planifie, choisit un outil autorisé, exécute, vérifie et journalise. Elle ne lance pas de Python arbitraire.\n"""),
         md("""## 1.1 Structure réelle de l’Agent IA créé dans l’application
@@ -177,6 +183,76 @@ La valeur peut être remplacée au runtime par un fournisseur de secrets ; le co
 Cette séparation limite les hallucinations : le modèle peut orienter et expliquer, mais les chiffres, les transformations et les autorisations restent sous contrôle de l’application.
 """),
     ]
+    groups: list[list[dict]] = []
+    current: list[dict] = []
+    for cell in cells:
+        if cell['cell_type'] == 'markdown' and current:
+            groups.append(current)
+            current = []
+        current.append(cell)
+    if current:
+        groups.append(current)
+    order = {
+        '# AI Insurance': 0,
+        '## Guide de lecture': 1,
+        '## 1. Architecture globale': 2,
+        '## 1.1 Structure réelle': 3,
+        '## Grandes composantes': 4,
+        '## 2. Configuration': 5,
+        '## Mémoire de l’agent': 6,
+        '## 3. Ingestion': 7,
+        '## 4. Profilage': 8,
+        '## 5. Nettoyage': 9,
+        '## 6. Versions': 10,
+        '## 7. KPI': 11,
+        '## 8. Dashboard': 12,
+        '## 9. Analytics': 13,
+        '## 10. SupervisorAgent': 14,
+        '## 11. GeminiModelManager': 15,
+        '## 16. Modèles LLM': 16,
+        '## 17. Stockage sécurisé': 17,
+        '## 12. Reporting': 18,
+        '## 18. Ce que le LLM': 19,
+        '## 13. Flux complet': 20,
+        '## 14. Lecture pédagogique': 21,
+        '## 15. Limites': 22,
+        '## Références': 23,
+    }
+    def group_rank(group: list[dict]) -> int:
+        first = ''.join(group[0].get('source', [])).splitlines()[0]
+        return next((rank for prefix, rank in order.items() if first.startswith(prefix)), 999)
+
+    groups.sort(key=group_rank)
+    display_titles = {
+        '## 1. Architecture globale': '## Bloc 1 — Architecture globale',
+        '## 1.1 Structure réelle': '## Bloc 2 — Structure réelle de l’Agent IA',
+        '## Grandes composantes': '## Bloc 3 — Grandes composantes Python et utilité Agent IA',
+        '## 2. Configuration': '## Bloc 4 — Configuration et initialisation de Streamlit',
+        '## Mémoire de l’agent': '## Bloc 5 — Mémoire de l’agent et cycle Streamlit',
+        '## 3. Ingestion': '## Bloc 6 — Ingestion et prévisualisation RAW',
+        '## 4. Profilage': '## Bloc 7 — Profilage et qualité',
+        '## 5. Nettoyage': '## Bloc 8 — Nettoyage et imputation cellule par cellule',
+        '## 6. Versions': '## Bloc 9 — Versions RAW / STAGING / CURATED',
+        '## 7. KPI': '## Bloc 10 — KPI assurance déterministes',
+        '## 8. Dashboard': '## Bloc 11 — Dashboard sur RAW et CURATED',
+        '## 9. Analytics': '## Bloc 12 — Analytics allow-listées',
+        '## 10. SupervisorAgent': '## Bloc 13 — SupervisorAgent et AnalysisAgent',
+        '## 11. GeminiModelManager': '## Bloc 14 — GeminiModelManager et gouvernance LLM',
+        '## 16. Modèles LLM': '## Bloc 15 — Modèles LLM, switches et fallback',
+        '## 17. Stockage sécurisé': '## Bloc 16 — Stockage sécurisé de la clé API Gemini',
+        '## 12. Reporting': '## Bloc 17 — Reporting, audit et sécurité',
+        '## 18. Ce que le LLM': '## Bloc 18 — Ce que le LLM fait et ne fait pas',
+        '## 13. Flux complet': '## Annexe A — Flux complet Agentic AI',
+        '## 14. Lecture pédagogique': '## Annexe B — Lecture d’un cycle agentique complet',
+        '## 15. Limites': '## Annexe C — Limites et bonnes pratiques en production',
+    }
+    for group in groups:
+        first = ''.join(group[0].get('source', [])).splitlines()[0]
+        for prefix, title in display_titles.items():
+            if first.startswith(prefix):
+                group[0]['source'][0] = title + '\n'
+                break
+    cells = [cell for group in groups for cell in group]
     notebook = {'cells': cells, 'metadata': {'kernelspec': {'display_name': 'Python 3', 'language': 'python', 'name': 'python3'}, 'language_info': {'name': 'python'}}, 'nbformat': 4, 'nbformat_minor': 5}
     destination = Path(__file__).resolve().parents[1] / 'docs' / 'AI_Insurance_Data_Analyst_Pedagogical.ipynb'
     destination.write_text(json.dumps(notebook, ensure_ascii=False, indent=1), encoding='utf-8')
