@@ -22,6 +22,7 @@ from insurance_ai.services.charts import ChartService
 import insurance_ai.services.cleaning as cleaning_module
 from insurance_ai.services.cleaning import CleaningService
 from insurance_ai.services.database import DatabaseService
+import insurance_ai.services.dashboard as dashboard_module
 from insurance_ai.services.dashboard import DashboardService
 from insurance_ai.services.gemini_manager import GeminiModelManager
 from insurance_ai.services.ingestion import IngestionService
@@ -40,6 +41,9 @@ st.set_page_config(page_title=settings.app_name, page_icon="🛡️", layout="wi
 if not hasattr(CleaningService, "impute_cell"):
     cleaning_module = importlib.reload(cleaning_module)
     CleaningService = cleaning_module.CleaningService
+if not hasattr(DashboardService, "metric_columns"):
+    dashboard_module = importlib.reload(dashboard_module)
+    DashboardService = dashboard_module.DashboardService
 
 store = ProjectStore()
 audit = AuditLogger()

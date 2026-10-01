@@ -22,3 +22,7 @@ def test_metric_columns_only_expose_premium_or_claim_variables():
     service = DashboardService()
     assert service.metric_columns(df, "premium") == ["written_premium", "ceded_premium"]
     assert service.metric_columns(df, "claims") == ["claim_amount"]
+
+
+def test_dashboard_metric_mapping_is_available():
+    assert hasattr(DashboardService, "metric_columns")
