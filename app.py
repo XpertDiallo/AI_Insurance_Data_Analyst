@@ -453,12 +453,15 @@ elif page == "Dashboard":
     df=require_df(); cols=list(df.columns)
     tab1, tab2 = st.tabs(["Dashboard assurance", "Graphique libre"])
     with tab1:
-        numeric_cols=list(df.select_dtypes(include="number").columns)
-        if len(numeric_cols) < 2:
-            st.info("Au moins deux colonnes numériques sont nécessaires pour le dashboard assurance.")
+        premium_cols = dashboard_service.metric_columns(df, "premium")
+        claims_cols = dashboard_service.metric_columns(df, "claims")
+        if not premium_cols or not claims_cols:
+            st.info("Le dashboard assurance nécessite au moins une variable numérique de prime et une variable numérique de sinistre.")
+            st.caption(f"Variables primes détectées : {', '.join(premium_cols) or 'aucune'}")
+            st.caption(f"Variables sinistres détectées : {', '.join(claims_cols) or 'aucune'}")
         else:
-            premium_col=st.selectbox("Prime",numeric_cols,key="dash_premium")
-            claims_col=st.selectbox("Sinistres",numeric_cols,index=min(1,len(numeric_cols)-1),key="dash_claims")
+            premium_col=st.selectbox("Prime",premium_cols,key="dash_premium")
+            claims_col=st.selectbox("Sinistres",claims_cols,key="dash_claims")
             group_col=st.selectbox("Dimension de segmentation",[None]+cols,key="dash_group")
             date_col=st.selectbox("Date (optionnel)",[None]+cols,key="dash_date")
             try:

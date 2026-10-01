@@ -9,3 +9,16 @@ def test_portfolio_dashboard():
     assert d.premium_claims_by_group is not None
     assert d.monthly_trend is not None
     assert len(d.top_claims)==2
+
+
+def test_metric_columns_only_expose_premium_or_claim_variables():
+    df = pd.DataFrame({
+        "policy_id": [1, 2],
+        "written_premium": [100, 200],
+        "ceded_premium": [10, 20],
+        "claim_amount": [50, 20],
+        "unrelated_score": [1, 2],
+    })
+    service = DashboardService()
+    assert service.metric_columns(df, "premium") == ["written_premium", "ceded_premium"]
+    assert service.metric_columns(df, "claims") == ["claim_amount"]
