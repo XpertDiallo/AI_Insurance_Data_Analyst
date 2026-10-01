@@ -89,8 +89,9 @@ section {{ background:var(--paper); border-radius:12px; box-shadow:0 2px 12px #1
 .markdown-cell h3 {{ color:var(--blue); }}
 .markdown-cell p {{ margin:10px 0; }}
 .markdown-cell li {{ margin:4px 0; }}
-code {{ background:#eef2f7; border-radius:4px; padding:2px 5px; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.92em; }}
+code {{ background:#eef2f7; color:#243447; border-radius:4px; padding:2px 5px; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.92em; }}
 pre {{ background:var(--code); color:#e8eef8; border-radius:9px; overflow:auto; padding:18px; line-height:1.5; font-size:.9rem; }}
+pre code {{ background:transparent; color:inherit; padding:0; border-radius:0; }}
 .code-cell {{ border-left:5px solid var(--blue); padding-top:16px; padding-bottom:16px; }}
 .cell-label {{ color:var(--blue); font-size:.78rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px; }}
 footer {{ max-width:1100px; margin:0 auto 45px; padding:0 20px; color:var(--muted); font-size:.9rem; }}
