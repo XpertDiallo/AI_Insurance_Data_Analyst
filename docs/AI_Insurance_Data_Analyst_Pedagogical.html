@@ -12,7 +12,10 @@ header { background:linear-gradient(135deg,var(--navy),var(--blue)); color:#fff;
 header h1 { margin:0 0 8px; font-size:2.1rem; }
 header p { margin:0; opacity:.9; max-width:850px; }
 main { max-width:1100px; margin:28px auto 64px; padding:0 20px; }
-section { background:var(--paper); border-radius:12px; box-shadow:0 2px 12px #1d355710; margin:18px 0; padding:24px 30px; }
+section { background:var(--paper); border-radius:12px; box-shadow:0 2px 12px #1d355710; margin:18px 0; padding:24px 30px; border-top:5px solid transparent; }
+section:nth-of-type(3n+1) { background:#fff7e8; border-top-color:#f2a23a; }
+section:nth-of-type(3n+2) { background:#effbea; border-top-color:#79b86a; }
+section:nth-of-type(3n+3) { background:#edf5ff; border-top-color:#5b8fd8; }
 .markdown-cell h2 { color:var(--navy); border-bottom:1px solid #e5eaf1; padding-bottom:8px; }
 .markdown-cell h3 { color:var(--blue); }
 .markdown-cell p { margin:10px 0; }
