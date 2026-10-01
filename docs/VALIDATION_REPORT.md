@@ -5,8 +5,9 @@ Date : 01/10/2026
 ## Contrôles exécutés
 
 - `python -m compileall -q insurance_ai app.py scripts` : **OK**.
-- `pytest -q` : **18 tests réussis**.
+- `pytest -q` : **19 tests réussis**.
 - Smoke test Streamlit : serveur démarré sur un port local et `/_stcore/health` retourne HTTP 200 (`ok`).
+- Imputation interactive : variables avec NA listées dynamiquement, sélection cellule par cellule et stratégie enregistrée dans le lineage.
 - Smoke test bout-en-bout : import CSV `;`, profiling, dédoublonnage, imputation, RAW/CURATED, KPI S/P, dashboard, graphique PNG, rapports HTML/PDF/DOCX/PPTX/XLSX, SQLite : **OK**.
 - Recherche de `eval()` / `exec()` dans le code applicatif : **aucun**.
 - Recherche de clé Google hardcodée de forme `AIza...` : **aucune**.

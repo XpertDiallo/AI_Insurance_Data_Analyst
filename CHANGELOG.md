@@ -1,5 +1,12 @@
 # Changelog
 
+## Correctif — Imputation interactive
+
+- Affichage dynamique des variables contenant des NA avec leur volume de cellules manquantes.
+- Imputation cellule par cellule avec choix de stratégie et journalisation du numéro de ligne.
+- Réparation manuelle explicite autorisée pour une cellule d’identifiant ; les méthodes statistiques restent bloquées.
+- Ajout d’un test de non-régression sur l’imputation ciblée.
+
 ## 2.0.0 — 2026-09-29
 
 - Application Streamlit structurée par couches.

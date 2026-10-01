@@ -337,24 +337,58 @@ elif page == "Nettoyage":
         if st.button("Appliquer"):
             out=cleaner.cast_column(df,col,target); log_transform("cast",df,out.dataframe,column=col,parameters=out.details); st.session_state.df=out.dataframe; st.session_state.stage="STAGING"; st.warning(f"Nouvelles valeurs NA dues à la conversion : {out.details.get('new_na',0)}"); st.rerun()
     elif action == "Imputer NA":
-        col=st.selectbox("Colonne",list(df.columns)); strategy=st.selectbox("Stratégie",["median","mean","mode","constant","group_median"]); value=st.text_input("Valeur constante (si applicable)"); group=st.selectbox("Groupe (si group_median)",[None]+list(df.columns))
-        st.warning("L'imputation modifie l'information. Validez la stratégie avec le métier avant de créer CURATED.")
-        is_protected_identifier = any(
-            hint == col.lower() or col.lower().endswith(f"_{hint}")
-            for hint in cleaner.PROTECTED_NAME_HINTS
-        )
-        if is_protected_identifier:
-            st.info("Cette colonne ressemble à un identifiant. L’imputation automatique est désactivée pour préserver l’intégrité des clés.")
-        if st.button("Appliquer l'imputation", disabled=is_protected_identifier):
-            try:
-                out=cleaner.impute(df,col,strategy,value if strategy=="constant" else None,group)
-                log_transform("impute",df,out.dataframe,column=col,parameters=out.details)
-                st.session_state.df=out.dataframe
-                st.session_state.stage="STAGING"
-                st.success(f"{out.changed_rows} valeur(s) imputée(s).")
-                st.rerun()
-            except (KeyError, ValueError) as exc:
-                st.error(str(exc))
+        missing_columns = [column for column in df.columns if bool(df[column].isna().any())]
+        if not missing_columns:
+            st.success("Aucune valeur manquante à imputer dans la dataset active.")
+        else:
+            column_labels = {column: f"{column} — {int(df[column].isna().sum())} NA" for column in missing_columns}
+            col = st.selectbox("Variable contenant des NA", missing_columns, format_func=lambda value: column_labels[value])
+            missing_positions = [position for position, is_na in enumerate(df[col].isna()) if is_na]
+            row_position = st.selectbox(
+                "Enregistrement à traiter",
+                missing_positions,
+                format_func=lambda position: f"Ligne {position + 1} — index source : {df.index[position]}",
+            )
+            st.dataframe(df.iloc[[row_position]], use_container_width=True, hide_index=False)
+
+            is_protected_identifier = any(
+                hint == col.lower() or col.lower().endswith(f"_{hint}")
+                for hint in cleaner.PROTECTED_NAME_HINTS
+            )
+            strategies = ["manual"] if is_protected_identifier else ["median", "mean", "mode", "constant", "group_median", "manual"]
+            strategy_labels = {
+                "median": "Médiane de la variable",
+                "mean": "Moyenne de la variable",
+                "mode": "Mode de la variable",
+                "constant": "Constante",
+                "group_median": "Médiane par groupe",
+                "manual": "Valeur saisie manuellement",
+            }
+            strategy = st.selectbox("Type d'imputation pour cette cellule", strategies, format_func=lambda value: strategy_labels[value])
+            value = None
+            group = None
+            if strategy in {"constant", "manual"}:
+                value = st.text_input("Valeur pour cette cellule", key=f"impute_value_{col}_{row_position}")
+            if strategy == "group_median":
+                group_options = [column for column in df.columns if column != col]
+                if group_options:
+                    group = st.selectbox("Variable de regroupement", group_options)
+                else:
+                    st.error("La médiane par groupe nécessite au moins une autre variable.")
+            if is_protected_identifier:
+                st.info("Cette variable ressemble à un identifiant : seule une valeur vérifiée et saisie manuellement est autorisée pour cette cellule.")
+            st.warning("La décision est appliquée uniquement à la cellule sélectionnée et est ajoutée au journal de transformation.")
+            can_apply = strategy != "group_median" or group is not None
+            if st.button("Appliquer à cette cellule", type="primary", disabled=not can_apply):
+                try:
+                    out = cleaner.impute_cell(df, col, row_position, strategy, value, group)
+                    log_transform("impute_cell", df, out.dataframe, column=col, parameters=out.details)
+                    st.session_state.df = out.dataframe
+                    st.session_state.stage = "STAGING"
+                    st.success(f"Cellule de la ligne {row_position + 1} imputée. Sélectionnez la prochaine NA.")
+                    st.rerun()
+                except (KeyError, IndexError, ValueError) as exc:
+                    st.error(str(exc))
     elif action == "Standardiser catégories":
         col=st.selectbox("Colonne",list(df.columns)); st.write(df[col].value_counts(dropna=False).head(30)); raw_mapping=st.text_area("Mapping JSON", value='{"ABIDJAN":"Abidjan","abidjan":"Abidjan"}')
         if st.button("Appliquer mapping"):

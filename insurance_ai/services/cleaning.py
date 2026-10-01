@@ -111,6 +111,82 @@ class CleaningService:
             raise ValueError(f"Stratégie d'imputation non supportée: {strategy}")
         return CleaningOutcome(new, count, {"column": column, "strategy": strategy, "value": value, "group_by": group_by})
 
+    def impute_cell(
+        self,
+        df: pd.DataFrame,
+        column: str,
+        row_position: int,
+        strategy: str,
+        value: Any = None,
+        group_by: str | None = None,
+    ) -> CleaningOutcome:
+        """Impute one missing cell using an explicit, auditable decision.
+
+        A protected identifier can only be filled manually. This keeps the
+        integrity guard of ``impute`` while allowing an analyst to repair one
+        known key after human verification.
+        """
+        if column not in df.columns:
+            raise KeyError(column)
+        if not isinstance(row_position, int) or not 0 <= row_position < len(df):
+            raise IndexError("Position de ligne invalide.")
+        protected = any(
+            hint == column.lower() or column.lower().endswith(f"_{hint}")
+            for hint in self.PROTECTED_NAME_HINTS
+        )
+        if protected and strategy != "manual":
+            raise ValueError("Un identifiant potentiel doit être renseigné manuellement, cellule par cellule.")
+
+        col_position = df.columns.get_loc(column)
+        current = df.iloc[row_position, col_position]
+        if not pd.isna(current):
+            raise ValueError("La cellule sélectionnée ne contient plus de valeur manquante.")
+
+        new = df.copy()
+        if strategy == "manual":
+            if value is None or not str(value).strip():
+                raise ValueError("Une valeur manuelle est requise.")
+            fill = value
+            if pd.api.types.is_numeric_dtype(df[column]):
+                fill = pd.to_numeric(value, errors="coerce")
+            elif pd.api.types.is_datetime64_any_dtype(df[column]):
+                fill = pd.to_datetime(value, errors="coerce")
+            if pd.isna(fill):
+                raise ValueError("La valeur manuelle n'est pas compatible avec le type de la colonne.")
+        elif strategy in {"median", "mean"}:
+            numeric = pd.to_numeric(df[column], errors="coerce")
+            fill = numeric.median() if strategy == "median" else numeric.mean()
+        elif strategy == "mode":
+            modes = df[column].mode(dropna=True)
+            fill = modes.iloc[0] if not modes.empty else None
+        elif strategy == "constant":
+            if value is None or not str(value).strip():
+                raise ValueError("Une valeur constante est requise.")
+            fill = value
+        elif strategy == "group_median":
+            if not group_by or group_by not in df.columns:
+                raise ValueError("group_by valide requis")
+            numeric = pd.to_numeric(df[column], errors="coerce")
+            medians = numeric.groupby(df[group_by], dropna=False).transform("median")
+            fill = medians.iloc[row_position]
+        else:
+            raise ValueError(f"Stratégie d'imputation non supportée: {strategy}")
+
+        if fill is None or pd.isna(fill):
+            raise ValueError("Aucune valeur d'imputation calculable pour cette cellule.")
+        new.iat[row_position, col_position] = fill
+        return CleaningOutcome(
+            new,
+            1,
+            {
+                "column": column,
+                "row_position": row_position,
+                "strategy": strategy,
+                "value": value if strategy in {"manual", "constant"} else fill,
+                "group_by": group_by,
+            },
+        )
+
     @staticmethod
     def standardize_categories(df: pd.DataFrame, column: str, mapping: dict[Any, Any]) -> CleaningOutcome:
         if column not in df.columns:
