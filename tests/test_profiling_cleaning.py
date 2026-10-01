@@ -41,3 +41,7 @@ def test_cell_imputation_is_row_specific_and_allows_manual_identifier_repair():
     assert pd.isna(repaired.dataframe.loc[1, "claim_id"])
     numeric = svc.impute_cell(repaired.dataframe, "amount", 1, "median")
     assert numeric.dataframe.loc[1, "amount"] == 10.0
+
+
+def test_cell_imputation_method_is_available():
+    assert hasattr(CleaningService, "impute_cell")

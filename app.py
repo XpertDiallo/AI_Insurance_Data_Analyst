@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import importlib
 import json
 import os
 import uuid
@@ -18,6 +19,7 @@ from insurance_ai.core.project_store import ProjectStore
 from insurance_ai.reports.generator import ReportGenerator
 from insurance_ai.services.auth import AuthService
 from insurance_ai.services.charts import ChartService
+import insurance_ai.services.cleaning as cleaning_module
 from insurance_ai.services.cleaning import CleaningService
 from insurance_ai.services.database import DatabaseService
 from insurance_ai.services.dashboard import DashboardService
@@ -32,6 +34,13 @@ st.set_page_config(page_title=settings.app_name, page_icon="🛡️", layout="wi
 # -----------------------------------------------------------------------------
 # Services
 # -----------------------------------------------------------------------------
+# Streamlit can keep imported modules alive while the script is rerun. During a
+# live update, recover gracefully if the process still holds the previous
+# CleaningService definition instead of raising an AttributeError in the UI.
+if not hasattr(CleaningService, "impute_cell"):
+    cleaning_module = importlib.reload(cleaning_module)
+    CleaningService = cleaning_module.CleaningService
+
 store = ProjectStore()
 audit = AuditLogger()
 ingestion = IngestionService()
